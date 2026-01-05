@@ -26,32 +26,8 @@ export const getWidgetMinSize = (widgetType) => {
   // Minimum sizes in grid units (width, height)
   // These are based on content needs: headers, text, lists, etc.
   const minSizesInGridUnits = {
-    profile: { width: 3, height: 3 },
-    about: { width: 3, height: 3 },
-    skills: { width: 3, height: 3 },
-    contact: { width: 3, height: 3 },
-    games: { width: 3, height: 3 },
-    visitors: { width: 3, height: 3 },
-    motd: { width: 3, height: 3 },
-    time: { width: 3, height: 3 },
-    github: { width: 3, height: 3 },
-    apikey: { width: 3, height: 3 },
-    "single-game": { width: 3, height: 3 },
-    "profile-picture": { width: 3, height: 3 },
-    "back-button": { width: 3, height: 3 },
-    "game-info": { width: 3, height: 3 },
-    "game-description": { width: 3, height: 3 },
-    "game-image": { width: 3, height: 3 },
-    "game-details": { width: 3, height: 3 },
-    "game-development-info": { width: 3, height: 3 },
-    heartbeat: { width: 3, height: 3 },
-    cv: { width: 3, height: 3 },
-    experience: { width: 3, height: 3 },
-    education: { width: 3, height: 3 },
-    projects: { width: 3, height: 3 },
-    "technical-skills": { width: 3, height: 3 },
-    languages: { width: 3, height: 3 },
-    certifications: { width: 3, height: 3 },
+    block: { width: 4, height: 4 },
+    spotlight: { width: 6, height: 4 },
   };
 
   const gridUnits = minSizesInGridUnits[widgetType] || { width: 2, height: 2 };

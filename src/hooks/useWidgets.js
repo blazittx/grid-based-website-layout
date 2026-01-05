@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { GAME_IDS } from "../constants/games";
 import {
   snapToGrid,
   snapSizeToGrid,
@@ -14,37 +13,13 @@ import {
   DEFAULT_HOMEPAGE_LAYOUT_MOBILE,
 } from "../utils/setDefaultLayouts";
 import { isMobile } from "../utils/mobile";
-import ProfileWidget from "../components/widgets/ProfileWidget";
-import AboutWidget from "../components/widgets/AboutWidget";
-import SkillsWidget from "../components/widgets/SkillsWidget";
-import ContactWidget from "../components/widgets/ContactWidget";
-import GamesWidget from "../components/widgets/GamesWidget";
-import VisitorsWidget from "../components/widgets/VisitorsWidget";
-import MessageOfTheDayWidget from "../components/widgets/MessageOfTheDayWidget";
-import TimeWidget from "../components/widgets/TimeWidget";
-import GitHubActivityWidget from "../components/widgets/GitHubActivityWidget";
-import ApiKeyWidget from "../components/widgets/ApiKeyWidget";
-import SingleGameWidget from "../components/widgets/SingleGameWidget";
-import ProfilePictureWidget from "../components/widgets/ProfilePictureWidget";
-import HeartbeatWidget from "../components/widgets/HeartbeatWidget";
-import CVWidget from "../components/widgets/CVWidget";
+import BlockWidget from "../components/widgets/BlockWidget";
+import SpotlightWidget from "../components/widgets/SpotlightWidget";
 
 // Component mapping - exported for use in other components
 export const componentMap = {
-  profile: ProfileWidget,
-  about: AboutWidget,
-  skills: SkillsWidget,
-  contact: ContactWidget,
-  games: GamesWidget,
-  visitors: VisitorsWidget,
-  motd: MessageOfTheDayWidget,
-  time: TimeWidget,
-  github: GitHubActivityWidget,
-  apikey: ApiKeyWidget,
-  "single-game": SingleGameWidget,
-  "profile-picture": ProfilePictureWidget,
-  heartbeat: HeartbeatWidget,
-  cv: CVWidget,
+  block: BlockWidget,
+  spotlight: SpotlightWidget,
 };
 
 export const buildWidgetsFromLayout = (layout, { mobile = isMobile() } = {}) =>
@@ -84,14 +59,7 @@ export const buildWidgetsFromLayout = (layout, { mobile = isMobile() } = {}) =>
           return null;
         }
 
-        // Initialize default settings for widgets that need them
-        let settings = widget.settings || {};
-        if (
-          widget.type === "single-game" &&
-          (!settings.gameId || !GAME_IDS.includes(settings.gameId))
-        ) {
-          settings = { gameId: GAME_IDS[0] };
-        }
+        const settings = widget.settings || {};
         // Preserve EXACT saved sizes and positions - don't modify them at all
         // Only ensure they're valid numbers
         const finalWidth =
@@ -130,11 +98,6 @@ export const useWidgets = (view = "main") => {
 
   // Initialize widget positions from default layouts
   const [widgets, setWidgets] = useState(() => {
-    // For game-detail and cv-detail views, return empty array - let their respective views handle initialization
-    if (view === "game-detail" || view === "cv-detail") {
-      return [];
-    }
-
     try {
       const layoutToUse = mobile
         ? DEFAULT_HOMEPAGE_LAYOUT_MOBILE
@@ -146,12 +109,12 @@ export const useWidgets = (view = "main") => {
       return [
         {
           id: "profile",
-          type: "profile",
+          type: "spotlight",
           x: snapToGrid(100, GRID_OFFSET_X),
           y: snapToGrid(100, GRID_OFFSET_Y),
           width: snapSizeToGrid(270),
           height: snapSizeToGrid(180),
-          component: ProfileWidget,
+          component: SpotlightWidget,
           locked: false,
           pinned: false,
         },

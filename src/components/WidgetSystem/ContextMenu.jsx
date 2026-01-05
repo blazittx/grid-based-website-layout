@@ -112,7 +112,7 @@ export default function ContextMenu({
   const availableWidgetTypes = Object.keys(activeComponentMap);
 
   // Widgets that allow multiple instances
-  const allowsMultipleInstances = (type) => type === "single-game";
+  const allowsMultipleInstances = (type) => type === "block";
 
   // Get widgets currently on the grid
   const existingWidgetTypes = new Set(widgets.map((w) => w.type || w.id));
@@ -256,7 +256,7 @@ export default function ContextMenu({
               e.currentTarget.style.color = "#ff6b6b";
             }}
           >
-            🗑️ Remove
+            Remove
           </button>
         </>
       )}
@@ -350,7 +350,7 @@ export default function ContextMenu({
           e.currentTarget.style.background = "none";
         }}
       >
-        ↻ Sort
+        Sort
       </button>
       <div
         style={{

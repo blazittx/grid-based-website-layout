@@ -1,55 +1,57 @@
-import { useEffect, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import {
-  useWidgets,
-  componentMap,
-  buildWidgetsFromLayout,
-} from "./hooks/useWidgets";
-import { useDragAndResize } from "./hooks/useDragAndResize";
-import { useAutosort } from "./hooks/useAutosort";
-import { useContextMenu } from "./hooks/useContextMenu";
-import { useToast } from "./hooks/useToast";
-import { usePageTransition } from "./hooks/usePageTransition";
-import ContextMenu from "./components/WidgetSystem/ContextMenu";
-import GridBackground from "./components/WidgetSystem/GridBackground";
-import GridMask from "./components/WidgetSystem/GridMask";
-import WidgetContainer from "./components/WidgetSystem/WidgetContainer";
-import Toaster from "./components/Toaster";
-import { getWidgetMinSize, GRID_SIZE } from "./constants/grid";
-import {
-  DEFAULT_HOMEPAGE_LAYOUT,
-  DEFAULT_HOMEPAGE_LAYOUT_MOBILE,
-} from "./utils/setDefaultLayouts";
+import { componentMap, buildWidgetsFromLayout } from "../../hooks/useWidgets";
+import { useDragAndResize } from "../../hooks/useDragAndResize";
+import { useAutosort } from "../../hooks/useAutosort";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { useToast } from "../../hooks/useToast";
+import { usePageTransition } from "../../hooks/usePageTransition";
+import ContextMenu from "../WidgetSystem/ContextMenu";
+import GridBackground from "../WidgetSystem/GridBackground";
+import GridMask from "../WidgetSystem/GridMask";
+import WidgetContainer from "../WidgetSystem/WidgetContainer";
+import Toaster from "../Toaster";
 import {
   snapToGrid,
   snapSizeToGrid,
   constrainToViewport,
   calculateCenterOffset,
   pixelsToGrid,
-} from "./utils/grid";
-import { findNearestValidPosition } from "./utils/collision";
-import { GRID_OFFSET_X, GRID_OFFSET_Y } from "./constants/grid";
-import { isMobile } from "./utils/mobile";
+} from "../../utils/grid";
+import { findNearestValidPosition } from "../../utils/collision";
+import { GRID_OFFSET_X, GRID_OFFSET_Y, GRID_SIZE } from "../../constants/grid";
+import { getWidgetMinSize } from "../../constants/grid";
+import {
+  DEFAULT_TEMPLATE_PAGE_LAYOUT,
+  DEFAULT_TEMPLATE_PAGE_LAYOUT_MOBILE,
+} from "../../utils/setDefaultLayouts";
+import { isMobile } from "../../utils/mobile";
 
-function App() {
-  const [widgets, setWidgets] = useWidgets("main");
+/* eslint-disable react/prop-types */
+
+const getTemplateLayout = (mobile) =>
+  mobile ? DEFAULT_TEMPLATE_PAGE_LAYOUT_MOBILE : DEFAULT_TEMPLATE_PAGE_LAYOUT;
+
+export default function PageTemplate() {
+  const [widgets, setWidgets] = useState(() =>
+    buildWidgetsFromLayout(getTemplateLayout(isMobile()), {
+      mobile: isMobile(),
+    })
+  );
   const { animateInitial, animateWidgetsIn } = usePageTransition();
   const isInitialMountRef = useRef(true);
 
-  // Ensure widgets is always an array
   const validWidgets = useMemo(
     () => (Array.isArray(widgets) ? widgets : []),
     [widgets]
   );
 
-  // Calculate center offset to center the layout horizontally and vertically
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
   const [isMobileState, setIsMobileState] = useState(() => isMobile());
   const previousMobileStateRef = useRef(isMobileState);
-  const [showDebugOutline, setShowDebugOutline] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -59,19 +61,6 @@ function App() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [setWindowSize]);
-
-  // Toggle debug outline with F2 key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // F3 key
-      if (e.key === "F2") {
-        e.preventDefault();
-        setShowDebugOutline((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -101,6 +90,7 @@ function App() {
     return calculateCenterOffset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowSize.width, windowSize.height]);
+
   const {
     isDragging,
     isResizing,
@@ -118,7 +108,6 @@ function App() {
   const { contextMenu, openContextMenu, closeContextMenu } = useContextMenu();
   const { toasts, showToast, removeToast } = useToast();
 
-  // Toggle lock on widget (unpins if pinned)
   const toggleLockWidget = useCallback(
     (widgetId) => {
       setWidgets((prev) =>
@@ -139,7 +128,6 @@ function App() {
     [setWidgets, closeContextMenu]
   );
 
-  // Toggle pin on widget (unlocks if locked)
   const togglePinWidget = useCallback(
     (widgetId) => {
       setWidgets((prev) =>
@@ -160,7 +148,6 @@ function App() {
     [setWidgets, closeContextMenu]
   );
 
-  // Remove widget
   const removeWidget = useCallback(
     (widgetId) => {
       setWidgets((prev) => prev.filter((w) => w.id !== widgetId));
@@ -169,41 +156,116 @@ function App() {
     [setWidgets, closeContextMenu]
   );
 
-  // Update widget settings
-  const updateWidgetSettings = useCallback(
-    (widgetId, newSettings) => {
-      setWidgets((prev) =>
-        prev.map((w) => {
-          if (w.id === widgetId) {
-            return {
-              ...w,
-              settings: { ...(w.settings || {}), ...newSettings },
-            };
+  const addWidget = useCallback(
+    (widgetType, x, y) => {
+      const Component = componentMap[widgetType];
+      if (!Component) {
+        console.warn(`Widget type ${widgetType} not found`);
+        return;
+      }
+
+      flushSync(() => {
+        setWidgets((prev) => {
+          const allowsMultipleInstances = widgetType === "block";
+
+          if (!allowsMultipleInstances) {
+            const existingWidget = prev.find(
+              (w) => w.type === widgetType || w.id === widgetType
+            );
+            if (existingWidget) {
+              console.warn(`Widget ${widgetType} already exists`);
+              return prev;
+            }
           }
-          return w;
-        })
-      );
+
+          let widgetId = widgetType;
+          if (allowsMultipleInstances) {
+            const existingWidgets = prev.filter((w) => w.type === widgetType);
+            let maxNumber = 0;
+            existingWidgets.forEach((w) => {
+              const match = w.id.match(new RegExp(`^${widgetType}-(\\d+)$`));
+              if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNumber) {
+                  maxNumber = num;
+                }
+              }
+            });
+            widgetId = `${widgetType}-${maxNumber + 1}`;
+          }
+
+          const minSize = getWidgetMinSize(widgetType);
+          const width = snapSizeToGrid(minSize.width);
+          const height = snapSizeToGrid(minSize.height);
+
+          let targetX = x;
+          let targetY = y;
+          if (
+            x < 0 ||
+            x > window.innerWidth ||
+            y < 0 ||
+            y > window.innerHeight
+          ) {
+            if (prev.length > 0) {
+              const rightmostWidget = prev.reduce((rightmost, w) =>
+                w.x + w.width > rightmost.x + rightmost.width ? w : rightmost
+              );
+              targetX = rightmostWidget.x + rightmostWidget.width + GRID_SIZE;
+              targetY = rightmostWidget.y;
+            } else {
+              targetX = snapToGrid(100, GRID_OFFSET_X);
+              targetY = snapToGrid(100, GRID_OFFSET_Y);
+            }
+          }
+
+          const snappedX = snapToGrid(targetX, GRID_OFFSET_X);
+          const snappedY = snapToGrid(targetY, GRID_OFFSET_Y);
+          const constrained = constrainToViewport(
+            snappedX,
+            snappedY,
+            width,
+            height,
+            centerOffset
+          );
+
+          const validPosition = findNearestValidPosition(
+            constrained.x,
+            constrained.y,
+            width,
+            height,
+            prev,
+            null
+          );
+
+          const newWidget = {
+            id: widgetId,
+            type: widgetType,
+            x: validPosition.x,
+            y: validPosition.y,
+            width: width,
+            height: height,
+            component: Component,
+            locked: false,
+            pinned: false,
+            settings: {},
+          };
+
+          return [...prev, newWidget];
+        });
+      });
+
+      setTimeout(() => {
+        animateWidgetsIn();
+      }, 50);
+
+      closeContextMenu();
     },
-    [setWidgets]
+    [setWidgets, closeContextMenu, animateWidgetsIn, centerOffset]
   );
 
   const copyLayout = useCallback(() => {
     const layoutToSave = widgets.map(
-      ({
-        id,
-        type,
-        x,
-        y,
-        width,
-        height,
-        col,
-        row,
-        w,
-        h,
-        locked,
-        pinned,
-        settings,
-      }) => {
+      ({ id, type, x, y, width, height, col, row, w, h, locked, pinned }) => {
         const grid =
           typeof col === "number" && typeof row === "number"
             ? { col, row, w, h }
@@ -217,13 +279,13 @@ function App() {
           h: grid.h,
           locked: locked || false,
           pinned: pinned || false,
-          settings: settings || {},
+          settings: {},
         };
       }
     );
     const exportName = isMobile()
-      ? "HOMEPAGE_LAYOUT_MOBILE"
-      : "HOMEPAGE_LAYOUT";
+      ? "TEMPLATE_PAGE_LAYOUT_MOBILE"
+      : "TEMPLATE_PAGE_LAYOUT";
     const snippet = `export const ${exportName} = ${JSON.stringify(
       layoutToSave,
       null,
@@ -246,149 +308,16 @@ function App() {
     }
   }, [widgets, showToast]);
 
-  // Add widget at position
-  const addWidget = useCallback(
-    (widgetType, x, y) => {
-      const Component = componentMap[widgetType];
-      if (!Component) {
-        console.warn(`Widget type ${widgetType} not found`);
-        return;
-      }
-
-      // Use flushSync to ensure the state update happens synchronously
-      flushSync(() => {
-        setWidgets((prev) => {
-          // Allow multiple blocks; all other widget types are single-instance
-          const allowsMultipleInstances = widgetType === "block";
-
-          if (!allowsMultipleInstances) {
-            const existingWidget = prev.find(
-              (w) => w.type === widgetType || w.id === widgetType
-            );
-            if (existingWidget) {
-              console.warn(`Widget ${widgetType} already exists`);
-              return prev;
-            }
-          }
-
-          // Generate unique ID for widgets that allow multiple instances
-          let widgetId = widgetType;
-          if (allowsMultipleInstances) {
-            // Find the highest number used for this widget type
-            const existingWidgets = prev.filter((w) => w.type === widgetType);
-            let maxNumber = 0;
-            existingWidgets.forEach((w) => {
-              const match = w.id.match(new RegExp(`^${widgetType}-(\\d+)$`));
-              if (match) {
-                const num = parseInt(match[1], 10);
-                if (num > maxNumber) {
-                  maxNumber = num;
-                }
-              }
-            });
-            widgetId = `${widgetType}-${maxNumber + 1}`;
-          }
-
-          // Get minimum size for widget
-          const minSize = getWidgetMinSize(widgetType);
-          const width = snapSizeToGrid(minSize.width);
-          const height = snapSizeToGrid(minSize.height);
-
-          // Check if the click position is within reasonable bounds
-          // If not, use a default position near existing widgets or at a safe location
-          let targetX = x;
-          let targetY = y;
-
-          // If position is way off-screen or invalid, find a better default
-          if (
-            x < 0 ||
-            x > window.innerWidth ||
-            y < 0 ||
-            y > window.innerHeight
-          ) {
-            // Try to find a position near existing widgets
-            if (prev.length > 0) {
-              // Find the rightmost widget and place new widget to its right
-              const rightmostWidget = prev.reduce((rightmost, w) =>
-                w.x + w.width > rightmost.x + rightmost.width ? w : rightmost
-              );
-              targetX = rightmostWidget.x + rightmostWidget.width + GRID_SIZE;
-              targetY = rightmostWidget.y;
-            } else {
-              // No widgets exist, use a safe default position
-              targetX = snapToGrid(100, GRID_OFFSET_X);
-              targetY = snapToGrid(100, GRID_OFFSET_Y);
-            }
-          }
-
-          // Snap position to grid and constrain to viewport
-          const snappedX = snapToGrid(targetX, GRID_OFFSET_X);
-          const snappedY = snapToGrid(targetY, GRID_OFFSET_Y);
-          const constrained = constrainToViewport(
-            snappedX,
-            snappedY,
-            width,
-            height,
-            centerOffset
-          );
-
-          // Find nearest valid position that doesn't collide with existing widgets
-          const validPosition = findNearestValidPosition(
-            constrained.x,
-            constrained.y,
-            width,
-            height,
-            prev,
-            null // No widget to exclude
-          );
-
-          const settings = {};
-
-          // Create new widget - ensure all properties are set and create a new object
-          const newWidget = {
-            id: widgetId,
-            type: widgetType,
-            x: validPosition.x,
-            y: validPosition.y,
-            width: width,
-            height: height,
-            component: Component,
-            locked: false,
-            pinned: false,
-            settings: settings,
-          };
-
-          // Create a new array with the new widget to ensure React detects the change
-          return [...prev, newWidget];
-        });
-      });
-
-      // Animate the new widget in immediately
-      setTimeout(() => {
-        animateWidgetsIn();
-      }, 50);
-
-      // Close the context menu after state update
-      closeContextMenu();
-    },
-    [setWidgets, closeContextMenu, animateWidgetsIn, centerOffset]
-  );
-
-  // Handle mouse down (only for left-click drag, right-click handled by contextmenu)
   const handleMouseDownWithContext = (e, id) => {
-    // Only handle left-click for dragging
     if (e.button !== 2) {
       handleMouseDown(e, id);
     }
   };
 
-  // Handle right-click context menu (handles both widgets and empty space)
   const handleContextMenu = (e) => {
     e.preventDefault();
     const target = e.target;
-    // Look for element with data-widget-id attribute (widgets have this)
     let widgetElement = target.closest("[data-widget-id]");
-    // If not found, also try looking for .widget class as fallback
     if (!widgetElement) {
       widgetElement = target.closest(".widget");
     }
@@ -396,7 +325,19 @@ function App() {
     openContextMenu(e, widgetId);
   };
 
-  // Initial animation on mount
+  useEffect(() => {
+    const handleGlobalMove = (e) => handleMouseMove(e);
+    const handleGlobalUp = () => handleMouseUp();
+
+    document.addEventListener("mousemove", handleGlobalMove);
+    document.addEventListener("mouseup", handleGlobalUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleGlobalMove);
+      document.removeEventListener("mouseup", handleGlobalUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
   useEffect(() => {
     if (isInitialMountRef.current && widgets.length > 0) {
       isInitialMountRef.current = false;
@@ -404,7 +345,6 @@ function App() {
     }
   }, [widgets, animateInitial]);
 
-  // Rebuild layout when switching between mobile and desktop
   useEffect(() => {
     const previousMobile = previousMobileStateRef.current;
     if (previousMobile === isMobileState) {
@@ -412,9 +352,7 @@ function App() {
     }
 
     previousMobileStateRef.current = isMobileState;
-    const layoutToUse = isMobileState
-      ? DEFAULT_HOMEPAGE_LAYOUT_MOBILE
-      : DEFAULT_HOMEPAGE_LAYOUT;
+    const layoutToUse = getTemplateLayout(isMobileState);
 
     if (layoutToUse && Array.isArray(layoutToUse) && layoutToUse.length > 0) {
       const rebuiltWidgets = buildWidgetsFromLayout(layoutToUse, {
@@ -429,20 +367,6 @@ function App() {
     }
   }, [isMobileState, setWidgets, animateWidgetsIn]);
 
-  // Attach global mouse events
-  useEffect(() => {
-    const handleGlobalMove = (e) => handleMouseMove(e);
-    const handleGlobalUp = () => handleMouseUp();
-
-    document.addEventListener("mousemove", handleGlobalMove);
-    document.addEventListener("mouseup", handleGlobalUp);
-
-    return () => {
-      document.removeEventListener("mousemove", handleGlobalMove);
-      document.removeEventListener("mouseup", handleGlobalUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
-
   const mobile = isMobile();
 
   return (
@@ -452,7 +376,7 @@ function App() {
         height: mobile ? "auto" : "100vh",
         minHeight: mobile ? "100vh" : "auto",
         overflow: mobile ? "auto" : "hidden",
-        overflowX: "hidden", // Prevent horizontal scrolling on all devices
+        overflowX: "hidden",
         position: "relative",
       }}
       onContextMenu={handleContextMenu}
@@ -467,12 +391,10 @@ function App() {
         onAddWidget={addWidget}
         onCopyLayout={copyLayout}
         onClose={closeContextMenu}
+        componentMap={componentMap}
       />
 
-      <GridBackground
-        centerOffset={centerOffset}
-        showDebugOutline={showDebugOutline}
-      />
+      <GridBackground centerOffset={centerOffset} />
 
       <GridMask
         widgets={widgets}
@@ -493,11 +415,8 @@ function App() {
         onMouseDown={handleMouseDownWithContext}
         wasLastInteractionDrag={wasLastInteractionDrag}
         centerOffset={centerOffset}
-        onUpdateWidgetSettings={updateWidgetSettings}
       />
       <Toaster toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
-
-export default App;
